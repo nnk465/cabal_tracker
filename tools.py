@@ -2,11 +2,11 @@ import requests
 import time
 from datetime import datetime
 
-laundering = "G2YxRa6wt1qePMwfJzdXZG62ej4qaTC7YURzuh2Lwd3t"
+funds = "G2YxRa6wt1qePMwfJzdXZG62ej4qaTC7YURzuh2Lwd3t"
 ffex = "5ndLnEYqSFiA5yUFHo6LVZ1eWc6Rhh11K5CfJNkoHEPs"
 raydium_add = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"
 pf_add = "39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg"
-fournisseurs = [ffex, laundering]
+fournisseurs = [ffex, funds]
 
 wallet_to_subscribe = []
 wallet_to_unsubscribe = []
@@ -58,12 +58,12 @@ def get_filtered_addresses(transfers):
     
 def check_add(address):
     data = get_transfers(address, 100, False)
-    i = 2 if len(data) > 1 and data[1]["from_address"] == laundering else 1 
+    i = 2 if len(data) > 1 and data[1]["from_address"] == funds else 1 
     return False if len(data) > i else True
 
 def get_raydium_swaps(mint):
     params = {
-    'address': 'MB6vFR9eg69Zjq8FcNxEnPFNAS9oN5grWtczq6vpump',
+    'address': mint,
     'page_size': '100',
     'exclude_amount_zero': 'false',
     'page': 1}
