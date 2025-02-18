@@ -5,6 +5,10 @@ import json
 import threading
 from datetime import datetime
 
+
+bet = 0.12
+watching_token = {}
+
 async def subscribe():
     uri = "wss://pumpportal.fun/api/data"
     while True:
@@ -12,6 +16,9 @@ async def subscribe():
         try:
             async with websockets.connect(uri) as websocket:
                 print("WebSocket connection established.")
+                      # Subscribing to token creation events
+                payload = {"method": "subscribeRaydiumLiquidity",}
+                await websocket.send(json.dumps(payload))
                 if watching_wallet:
                     payload = {
                         "method": "subscribeAccountTrade",
@@ -43,7 +50,6 @@ async def subscribe():
                         await asyncio.sleep(5)
                 async def handle_messages():
                     async for message in websocket:
-                        print(f'{datetime.now().strftime("%H:%M:%S")}:{round((time.time()-int(time.time()))*100)}')
                         data = json.loads(message)
                         on_message(data)
 
@@ -57,46 +63,66 @@ async def subscribe():
             await asyncio.sleep(5)
 
 def watch_token(mint, data):
+    
     t = time.time()
     while True:
-        ts = get_migration_time(mint)
-        if ts:
-            time.sleep(0.7)
-            if is_rug(mint, ts):
-                break
-        time.sleep(0.3)
-        
-    send_message(f"buy suy du mint {mint}.\nmarketcap: {data['price_usdt']*(10**9)}$\nhttps://dexscreener.com/solana/{mint}")
-    response = swap("buy", mint, bet, 30, 0.006, data["pool"])
+        if not watching_token.get(mint, False):
+            if time.time()>t +900:
+                return
+            time.sleep(0.5)
+        else:
+            break
+    r, price = is_rug2(mint)
+    while r is None:
+        r, price = is_rug2(mint)
+        time.sleep(0.5)
+    if r:
+        time.sleep(60*5)
+        if get_last_price(mint) < price:
+            return
+    # response = swap("buy", mint, bet, 30, 0.006, data["pool"])
+    send_message(f"buy du mint {mint}.\nmarketcap: {data['price_usdt']*(10**9)}$\nhttps://dexscreener.com/solana/{mint}")
     
     return
-    # price = get_token_data(mint)["price_usdt"]
-    # if price > 10**(-4):
-    # send_message(f"buy suy du mint {mint}.\nmarketcap: {data['price_usdt']*(10**9)}$\nhttps://dexscreener.com/solana/{mint}")
-    #response = swap("buy", mint, bet, 20, 0.006, data["pool"])
-        
+
 def on_message(data):
-    print(data)
+    global watching_token
+
     side = data.get("txType", None)
-    if side is None or side not in ["create"]:
-        return
     address = data.get("traderPublicKey", None)
-    if data["solAmount"] != 15:
-        watching_wallet.pop(address)
+    
+    if side == 'addLiquidity':
+        mint = data['mint']
+        if mint in watching_token:
+            watching_token[mint] = True
+        return    
+    
+    if address:
+        watching_wallet.remove(address)
         wallet_to_unsubscribe.append(address)
+ 
+    if side not in ["create"] or data["solAmount"] != 15:
+        print(data)
         return
+    
+    
     mint = data["mint"]
     print(f"{side} {mint}")
     send_message(f"{side} {mint}")
+    watching_token[mint] = False
     watch_token(mint, data)
     
-# Run the subscribe function
-
+def main_maj():
+    try:    
+        maj_wallet_to_subscribe()
+    except Exception as e:
+        print(f"Unexpected error in maj_wallet_to_subscribe: {e}. Retrying...")
+        time.sleep(5)
 
 
 response = requests.get('https://api.ipify.org?format=json')
 ip_data = response.json()
 send_message(ip_data['ip'])
 
-threading.Thread(target=maj_wallet_to_subscribe, daemon=True).start()
+threading.Thread(target=main_maj, daemon=True).start()
 asyncio.get_event_loop().run_until_complete(subscribe())
