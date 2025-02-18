@@ -2,6 +2,8 @@ import requests
 import time
 from datetime import datetime
 
+apikey = ""
+
 funds = "G2YxRa6wt1qePMwfJzdXZG62ej4qaTC7YURzuh2Lwd3t"
 ffex = "5ndLnEYqSFiA5yUFHo6LVZ1eWc6Rhh11K5CfJNkoHEPs"
 raydium_add = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"
@@ -52,7 +54,7 @@ def get_transfers(address, number, only_out = True):
 def get_filtered_addresses(transfers):
     addresses = []
     for transfer in transfers:
-        if transfer['amount'] > 19000000000 and transfer['amount'] < 29900000000:
+        if float(transfer['amount']) > 19000000000 and float(transfer['amount']) < 29900000000:
             addresses.append(transfer['to_address'])    
     return addresses
     
@@ -61,48 +63,48 @@ def check_add(address):
     i = 2 if len(data) > 1 and data[1]["from_address"] == funds else 1 
     return False if len(data) > i else True
 
-def get_raydium_swaps(mint):
+def is_rug2(mint):
     params = {
     'address': mint,
     'page_size': '100',
     'exclude_amount_zero': 'false',
+    'from': raydium_add,
     'page': 1}
-    response = s.get('https://api-v2.solscan.io/v2/token/transfer', params=params, headers=headers).json()["data"]
-    transfers = response
-    transfers.reverse()
-    addresses = []
-    for tx in transfers:
-        ady = tx['from_address']
-        if tx['from_address'] == raydium_add and tx['to_address'] != "GGztQqQ6pCPaJQnNpXBgELr5cs3WwDakRbh1iEMzjgSJ":
-            addresses.append((tx['to_address'], tx['value']/tx['amount']*10**6))
-    return addresses
+    response = session.get('https://api-v2.solscan.io/v2/token/transfer', params=params, headers=headers).json()["data"]
+    if not response:
+        return None
+    response.reverse()
+    price = 0
+    for tx in response:
+        if price == 0:
+        # recuperer le prix lors de la première transaction
+            amount = tx['amount']*10**-tx['token_decimals']
+            price = tx['value']/amount
+        if float(tx['amount']) > 100000000:
+            return True, price
+    return False, price
             
 def get_migration_time(mint):
     response = session.get(
         f'https://api-v2.solscan.io/v2/token/transfer?address={mint}&page=1&page_size=10&exclude_amount_zero=false&from={pf_add}&to={raydium_add}',
         headers=headers,)
     if response.status_code == 200:
-        if response.json()['data']:
+        if not response.json()['data']:
             return None
         return response.json()['data'][0]['block_time']
     else:
         print(response.content)
         
-def is_rug(mint, ts):
-    i = 1
-    while True:
-        response = session.get(
-            f'https://api-v2.solscan.io/v2/token/transfer?address={mint}&page={i}&page_size=100&exclude_amount_zero=false&from=5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1&block_time[]={ts}&block_time[]={ts+1}',
-            cookies=cookies,
-            headers=headers,
-        )
-        i += 1
-        if len(response.json()['data']) == 0:
-            return False
-        for tx in response.json()['data']:
-            if tx["amount"]*10**-6 > 90000000:
-                return True
-                
+def get_last_price(mint):
+    response = session.get(
+        f'https://api-v2.solscan.io/v2/token/transfer?address={mint}&page=1&page_size=10&exclude_amount_zero=false',
+        headers=headers,
+    )
+    if response.status_code == 200:        
+        p =response.json()['data'][0]
+        amount = p['amount']*10**-p['token_decimals']
+        return p['value']/amount
+        
 def swap(side, mint, amount, slippage, priorityFee, pool):
     response = requests.post(url=f"https://pumpportal.fun/api/trade?api-key={apikey}", data={
         "action": side,             # "buy" or "sell"
@@ -156,7 +158,8 @@ def send_message(message):
     # Envoi de la requête
     response = requests.get(url, params=params)
 if __name__ == "__main__":
-    pass
+    mint = "644MryX1MXBNjA8QEUNeQ5HSEVZZqGRzPdiLz4EBpump"
+    print(get_last_price(mint)) 
     # news = []
     # addresses = sum([get_transfers(address, 1000) for address in fournisseurs], [])
     # first_sort = list(set(get_filtered_addresses(addresses)))
