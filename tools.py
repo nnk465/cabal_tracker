@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 
 apikey = ""
+telegram_api_key = ""
 
 funds = "G2YxRa6wt1qePMwfJzdXZG62ej4qaTC7YURzuh2Lwd3t"
 ffex = "5ndLnEYqSFiA5yUFHo6LVZ1eWc6Rhh11K5CfJNkoHEPs"
@@ -147,7 +148,7 @@ def maj_wallet_to_subscribe():
 
 def send_message(message):
     # URL de l'API Telegram
-    url = f"https://api.telegram.org/bot7748028669:AAE82F36LbbuoYDkjxQRpQaCElxwYbgkeA0/sendMessage"
+    url = f"https://api.telegram.org/bot{telegram_api_key}/sendMessage"
 
     # Paramètres de la requête
     params = {
